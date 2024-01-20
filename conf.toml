@@ -1,5 +1,8 @@
-[keybindings]
-MoveForward = "W"
+[gameplay]
+MoveFwd = "W"
+MoveBack = "S"
 MoveLeft = "A"
-MoveDown = "S"
 MoveRight = "D"
+
+[menu]
+MenuEscape = "Esc"

@@ -1,45 +1,46 @@
-use std::fs;
+use std::{collections::HashMap, fs};
 
 use crate::events::GameEvents;
 use bevy::{
     ecs::component::Component,
     input::keyboard::{KeyCode, KeyboardInput},
-    utils::hashbrown::HashMap,
 };
 use toml::{map::Map, *};
 
 type KeyboardInputMap = HashMap<KeyCode, GameEvents>;
+type MappedKeyboardInput<'a> = Vec<(&'a KeyboardInput, GameEvents)>;
 
-fn create_input_map(config: Map<String, Value>) -> KeyboardInputMap {
+fn create_input_map(config: &Table) -> KeyboardInputMap {
     let mut input_map = HashMap::<KeyCode, GameEvents>::new();
 
     for (key, val) in config.iter() {
         if val.is_str() == false {
             continue;
         }
-        let event_str = val.as_str().unwrap();
 
         let keycode: Result<KeyCode, ()>;
         let event: Result<GameEvents, ()>;
 
         match key.as_str() {
-            "W" => keycode = Ok(KeyCode::W),
-            "A" => keycode = Ok(KeyCode::A),
-            "S" => keycode = Ok(KeyCode::S),
-            "D" => keycode = Ok(KeyCode::D),
+            "MoveFwd" => event = Ok(GameEvents::MoveForward),
+            "MoveBack" => event = Ok(GameEvents::MoveBack),
+            "MoveLeft" => event = Ok(GameEvents::MoveLeft),
+            "MoveRight" => event = Ok(GameEvents::MoveRight),
+            "MenuEscape" => event = Ok(GameEvents::MenuEscape),
             _ => {
-                println!("Could not map ({:?}) to Keycode", key);
+                println!("Could not map {:?} to event", key);
                 continue;
             }
         }
 
-        match event_str {
-            "MoveFwd" => event = Ok(GameEvents::MoveForward),
-            "MoveBack" => event = Ok(GameEvents::MoveDown),
-            "MoveLeft" => event = Ok(GameEvents::MoveLeft),
-            "MoveRight" => event = Ok(GameEvents::MoveRight),
+        match val.as_str().unwrap() {
+            "W" => keycode = Ok(KeyCode::W),
+            "A" => keycode = Ok(KeyCode::A),
+            "S" => keycode = Ok(KeyCode::S),
+            "D" => keycode = Ok(KeyCode::D),
+            "Esc" => keycode = Ok(KeyCode::Escape),
             _ => {
-                println!("Could not map ({:?}) to event", event_str);
+                println!("Could not map {:?} to Keycode", val);
                 continue;
             }
         }
@@ -54,55 +55,21 @@ fn create_input_map(config: Map<String, Value>) -> KeyboardInputMap {
     input_map
 }
 
-/**
- * I want to map keycode actions
- * I want to map mouseevent to actions
- * I want to map touchevent to actions
- * ...etc
- *
- */
-
-// rawinputconstants
-// inputconstants
-// input map (maps raw inputs to input constants)
-/**
- * Read input map from yaml
- * Match raw input against input map, to find inputconstant
- *
- * So i press "A", context consumes A, matches it to input based on inputmap
- * - A == Events::MoveFwd
- * The game context check if A is mapped to any of its inputs
- * If it is, it fires off an event.
- *
- * So what i need to do is dynamically check the input against a inputmap inside the context
- */
-
-// struct InputMapper {}
-// impl InputMapper {
-//     fn map_input_str_to_event(str: String) -> Event {
-//         match(str) {
-//             "W"
-//         }
-//     }
-// }
-
-struct Config {
-    input_map: HashMap<KeyCode, GameEvents>,
-}
-
 pub struct HandleInputResult {
     pub generated_events: Vec<GameEvents>,
 }
 
-pub trait InputContextHandler {
-    fn handle_input(&self, input: &mut Vec<&KeyboardInput>) -> HandleInputResult;
+pub trait MappedInputHandler {
+    fn handle_keyboard_input(&self, mapped_keyboard_events: MappedKeyboardInput)
+        -> Vec<GameEvents>;
 }
 
 #[derive(Component)]
 pub struct InputContext {
     is_active: bool,
+    name: String,
     keyboard_input_map: KeyboardInputMap,
-    pub handler: Box<dyn InputContextHandler + Send + Sync>,
+    pub handler: Box<dyn MappedInputHandler + Send + Sync>,
 }
 
 impl InputContext {
@@ -116,7 +83,7 @@ impl InputContext {
         self.is_active = false;
     }
 
-    pub fn new(handler: Box<dyn InputContextHandler + Send + Sync>) -> InputContext {
+    pub fn new(handler: Box<dyn MappedInputHandler + Send + Sync>, name: String) -> InputContext {
         let filename = "conf.toml";
         let contents = match fs::read_to_string(filename) {
             // If successful return the files text as `contents`.
@@ -130,15 +97,37 @@ impl InputContext {
             }
         };
 
-        // Create input maps
-        let input = contents.parse::<Table>().unwrap();
-        let keyboard_input_map = create_input_map(input);
-        // Todo: create other input maps
+        // Generate input maps
+        let config = contents.parse::<Table>().unwrap();
+        let inputconfig: &Map<String, Value> = config.get(&name).unwrap().as_table().unwrap();
+        let keyboard_input_map = create_input_map(inputconfig);
 
         return InputContext {
             is_active: false,
             keyboard_input_map,
+            name,
             handler,
+        };
+    }
+
+    pub fn handle_input(&self, keyboard_events: &mut Vec<&KeyboardInput>) -> HandleInputResult {
+        // println!("Handling events for context: {:?}", self.name);
+        let mut mapped_events: MappedKeyboardInput = vec![];
+
+        // operate in place on the events passed to input context
+        // removing the ones we consume
+        keyboard_events.retain(|e| {
+            let keycode = e.key_code.unwrap();
+            if self.keyboard_input_map.contains_key(&keycode) == false {
+                return true;
+            }
+            let event = self.keyboard_input_map.get(&keycode).unwrap().clone();
+            mapped_events.push((*e, event));
+            return false;
+        });
+
+        return HandleInputResult {
+            generated_events: self.handler.handle_keyboard_input(mapped_events),
         };
     }
 }
@@ -152,76 +141,36 @@ impl GameInputContextHandler {
     }
 }
 
-impl InputContextHandler for GameInputContextHandler {
-    fn handle_input(&self, keyboard_events: &mut Vec<&KeyboardInput>) -> HandleInputResult {
+impl MappedInputHandler for GameInputContextHandler {
+    fn handle_keyboard_input(&self, mapped_input: MappedKeyboardInput) -> Vec<GameEvents> {
         let mut events: Vec<GameEvents> = vec![];
 
-        // Let event = map_input(input)
-        // if event === MoveFwd
-        // {  }
+        for (_, b) in mapped_input.into_iter() {
+            events.push(b);
+        }
 
-        // Consume events we care about
-        keyboard_events.retain(|v| {
-            match v.key_code {
-                Some(code) => {
-                    if code == KeyCode::W {
-                        events.push(GameEvents::MoveForward);
-                    }
-                    if code == KeyCode::A {
-                        events.push(GameEvents::MoveLeft);
-                    }
-                    if code == KeyCode::S {
-                        events.push(GameEvents::MoveDown);
-                    }
-                    if code == KeyCode::D {
-                        events.push(GameEvents::MoveRight);
-                    }
-
-                    return false;
-                }
-                None => {}
-            }
-
-            return true;
-        });
-
-        // Add some events.
-        return HandleInputResult {
-            generated_events: vec![],
-        };
+        return events;
     }
 }
 
 // -- Secondary InputContextHandler
-pub struct SecondaryInputContextHandler {}
+pub struct MenuInputContextHandler {}
 
-impl SecondaryInputContextHandler {
-    pub fn new() -> Box<SecondaryInputContextHandler> {
-        return Box::new(SecondaryInputContextHandler {});
+impl MenuInputContextHandler {
+    pub fn new() -> Box<MenuInputContextHandler> {
+        return Box::new(MenuInputContextHandler {});
     }
 }
 
 // Default InputContextHandler
-impl InputContextHandler for SecondaryInputContextHandler {
-    fn handle_input(&self, keyboard_events: &mut Vec<&KeyboardInput>) -> HandleInputResult {
-        // Consume events we care about
-        keyboard_events.retain(|v| {
-            match v.key_code {
-                Some(code) => {
-                    if code == KeyCode::A {
-                        return false;
-                    }
-                }
-                None => {}
-            }
+impl MappedInputHandler for MenuInputContextHandler {
+    fn handle_keyboard_input(&self, mapped_input: MappedKeyboardInput) -> Vec<GameEvents> {
+        let mut events: Vec<GameEvents> = vec![];
 
-            return true;
-        });
+        for (_, b) in mapped_input.into_iter() {
+            events.push(b);
+        }
 
-        println!("{:?}", keyboard_events);
-        // do something.
-        return HandleInputResult {
-            generated_events: vec![],
-        };
+        return events;
     }
 }

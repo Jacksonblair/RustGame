@@ -14,21 +14,24 @@ pub fn input_system(
     mut ew: EventWriter<GameEvents>,
 ) {
     let mut generated_events: Vec<GameEvents> = vec![];
-    let mut keyboard_events: Vec<&KeyboardInput> = er_keyboard.read().into_iter().collect();
-    let mouse_events: Vec<&MouseButtonInput> = er_mouse.read().into_iter().collect();
+    let mut keyboard_events: Vec<&KeyboardInput> = er_keyboard.read().collect();
+    // let mouse_events: Vec<&MouseButtonInput> = er_mouse.read().into_iter().collect();
 
-    // TODO: Somehow order input contexts.
-    if keyboard_events.len() == 0 && mouse_events.len() == 0 {
+    if keyboard_events.len() == 0 {
         return;
     }
 
+    // Run input through all active input contexts
     for inputcontext in input_contexts.iter() {
-        // Only run active input contexts
-        if inputcontext.is_active() == false {
-            return;
-        }
-        let mut result = inputcontext.handler.handle_input(&mut keyboard_events);
+        // if inputcontext.is_active() == false {
+        //     continue;
+        // }
+        let mut result = inputcontext.handle_input(&mut keyboard_events);
         generated_events.append(&mut result.generated_events);
+    }
+
+    if (generated_events.len() > 0) {
+        println!("{:?}", generated_events);
     }
 
     // Dispatch generated events

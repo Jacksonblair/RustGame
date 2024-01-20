@@ -1,9 +1,11 @@
 use bevy::ecs::event::Event;
 
-#[derive(Event)]
+#[derive(Event, Debug, Clone)]
 pub enum GameEvents {
     MoveForward,
-    MoveDown,
+    MoveBack,
     MoveLeft,
     MoveRight,
+
+    MenuEscape,
 }
