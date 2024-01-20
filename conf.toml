@@ -1,0 +1,5 @@
+[keybindings]
+MoveForward = "W"
+MoveLeft = "A"
+MoveDown = "S"
+MoveRight = "D"
