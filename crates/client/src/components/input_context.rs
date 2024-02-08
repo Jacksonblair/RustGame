@@ -1,10 +1,10 @@
 use std::{collections::HashMap, fs};
 
-use crate::events::GameEvents;
 use bevy::{
     ecs::component::Component,
     input::keyboard::{KeyCode, KeyboardInput},
 };
+use shared::GameEvents;
 use toml::{map::Map, *};
 
 type KeyboardInputMap = HashMap<KeyCode, GameEvents>;
@@ -27,6 +27,7 @@ fn create_input_map(config: &Table) -> KeyboardInputMap {
             "MoveLeft" => event = Ok(GameEvents::MoveLeft),
             "MoveRight" => event = Ok(GameEvents::MoveRight),
             "MenuEscape" => event = Ok(GameEvents::MenuEscape),
+            "ConnectToServer" => event = Ok(GameEvents::ConnectToServer),
             _ => {
                 println!("Could not map {:?} to event", key);
                 continue;
@@ -39,6 +40,7 @@ fn create_input_map(config: &Table) -> KeyboardInputMap {
             "S" => keycode = Ok(KeyCode::S),
             "D" => keycode = Ok(KeyCode::D),
             "Esc" => keycode = Ok(KeyCode::Escape),
+            "Enter" => keycode = Ok(KeyCode::Return),
             _ => {
                 println!("Could not map {:?} to Keycode", val);
                 continue;
@@ -83,6 +85,7 @@ impl InputContext {
         self.is_active = false;
     }
 
+    /** name in constructor corresponds to table in .toml from which keybinds are read */
     pub fn new(handler: Box<dyn MappedInputHandler + Send + Sync>, name: String) -> InputContext {
         let filename = "conf.toml";
         let contents = match fs::read_to_string(filename) {
@@ -90,16 +93,19 @@ impl InputContext {
             // `c` is a local variable.
             Ok(c) => c,
             // Handle the `error` case.
-            Err(_) => {
+            Err(err) => {
                 // Write `msg` to `stderr`.
-                println!("Could not read file `{}`", filename);
+                println!("Could not read file `{}` {:?}", filename, err);
                 panic!();
             }
         };
 
-        // Generate input maps
+        // parse config into map
         let config = contents.parse::<Table>().unwrap();
+
+        // Try to find table in config that maps to context handlers name
         let inputconfig: &Map<String, Value> = config.get(&name).unwrap().as_table().unwrap();
+
         let keyboard_input_map = create_input_map(inputconfig);
 
         return InputContext {
@@ -162,7 +168,6 @@ impl MenuInputContextHandler {
     }
 }
 
-// Default InputContextHandler
 impl MappedInputHandler for MenuInputContextHandler {
     fn handle_keyboard_input(&self, mapped_input: MappedKeyboardInput) -> Vec<GameEvents> {
         let mut events: Vec<GameEvents> = vec![];

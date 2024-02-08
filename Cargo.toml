@@ -1,13 +1,9 @@
-[package]
-name = "BEVY_TEST_AGAIN"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+members = ["crates/client", "crates/server", "crates/shared"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+[workspace.dependencies]
 bevy = { version = "0.12.0", features = ["dynamic_linking"] }
-netcode = { path = "./netcode" }
+bevy_renet = "0.0.10"
 rust-ini = "0.20.0"
 toml = "0.8.8"
 

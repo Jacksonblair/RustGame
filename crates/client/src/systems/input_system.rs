@@ -1,16 +1,17 @@
-use crate::{components::input_context::InputContext, events::GameEvents};
+use crate::resources::input_contexts::InputContexts;
 use bevy::{
     ecs::{
         event::{EventReader, EventWriter},
-        system::Query,
+        system::{Query, Res},
     },
-    input::{keyboard::KeyboardInput, mouse::MouseButtonInput},
+    input::keyboard::KeyboardInput,
 };
+use shared::GameEvents;
 
 pub fn input_system(
-    mut input_contexts: Query<&InputContext>,
+    input_contexts: Res<InputContexts>,
     mut er_keyboard: EventReader<KeyboardInput>,
-    mut er_mouse: EventReader<MouseButtonInput>,
+    // mut er_mouse: EventReader<MouseButtonInput>,
     mut ew: EventWriter<GameEvents>,
 ) {
     let mut generated_events: Vec<GameEvents> = vec![];
@@ -22,7 +23,7 @@ pub fn input_system(
     }
 
     // Run input through all active input contexts
-    for inputcontext in input_contexts.iter() {
+    for inputcontext in input_contexts.contexts.iter() {
         // if inputcontext.is_active() == false {
         //     continue;
         // }
@@ -30,7 +31,7 @@ pub fn input_system(
         generated_events.append(&mut result.generated_events);
     }
 
-    if (generated_events.len() > 0) {
+    if generated_events.len() > 0 {
         println!("{:?}", generated_events);
     }
 

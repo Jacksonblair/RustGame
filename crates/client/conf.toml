@@ -6,3 +6,4 @@ MoveRight = "D"
 
 [menu]
 MenuEscape = "Esc"
+ConnectToServer = "Enter"

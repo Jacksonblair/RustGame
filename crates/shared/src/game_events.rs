@@ -8,4 +8,6 @@ pub enum GameEvents {
     MoveRight,
 
     MenuEscape,
+
+    ConnectToServer,
 }
