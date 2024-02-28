@@ -2,16 +2,19 @@ use std::{collections::HashMap, fs};
 
 use bevy::{
     ecs::component::Component,
-    input::keyboard::{KeyCode, KeyboardInput},
+    input::{
+        keyboard::{KeyCode, KeyboardInput},
+        ButtonState,
+    },
 };
-use shared::GameEvents;
+use shared::PlayerCommands;
 use toml::{map::Map, *};
 
-type KeyboardInputMap = HashMap<KeyCode, GameEvents>;
-type MappedKeyboardInput<'a> = Vec<(&'a KeyboardInput, GameEvents)>;
+type KeyboardInputMap = HashMap<KeyCode, PlayerCommands>;
+type MappedKeyboardInput<'a> = Vec<(&'a KeyboardInput, PlayerCommands)>;
 
 fn create_input_map(config: &Table) -> KeyboardInputMap {
-    let mut input_map = HashMap::<KeyCode, GameEvents>::new();
+    let mut input_map = HashMap::<KeyCode, PlayerCommands>::new();
 
     for (key, val) in config.iter() {
         if val.is_str() == false {
@@ -19,15 +22,16 @@ fn create_input_map(config: &Table) -> KeyboardInputMap {
         }
 
         let keycode: Result<KeyCode, ()>;
-        let event: Result<GameEvents, ()>;
+        let event: Result<PlayerCommands, ()>;
 
         match key.as_str() {
-            "MoveFwd" => event = Ok(GameEvents::MoveForward),
-            "MoveBack" => event = Ok(GameEvents::MoveBack),
-            "MoveLeft" => event = Ok(GameEvents::MoveLeft),
-            "MoveRight" => event = Ok(GameEvents::MoveRight),
-            "MenuEscape" => event = Ok(GameEvents::MenuEscape),
-            "ConnectToServer" => event = Ok(GameEvents::ConnectToServer),
+            "MoveFwd" => event = Ok(PlayerCommands::MoveForward),
+            "MoveBack" => event = Ok(PlayerCommands::MoveBack),
+            "MoveLeft" => event = Ok(PlayerCommands::MoveLeft),
+            "MoveRight" => event = Ok(PlayerCommands::MoveRight),
+            "MenuEscape" => event = Ok(PlayerCommands::MenuEscape),
+            "ConnectToServer" => event = Ok(PlayerCommands::ConnectToServer),
+            "DisconnectFromServer" => event = Ok(PlayerCommands::DisconnectFromServer),
             _ => {
                 println!("Could not map {:?} to event", key);
                 continue;
@@ -58,12 +62,14 @@ fn create_input_map(config: &Table) -> KeyboardInputMap {
 }
 
 pub struct HandleInputResult {
-    pub generated_events: Vec<GameEvents>,
+    pub generated_events: Vec<PlayerCommands>,
 }
 
 pub trait MappedInputHandler {
-    fn handle_keyboard_input(&self, mapped_keyboard_events: MappedKeyboardInput)
-        -> Vec<GameEvents>;
+    fn handle_keyboard_input(
+        &self,
+        mapped_keyboard_events: MappedKeyboardInput,
+    ) -> Vec<PlayerCommands>;
 }
 
 #[derive(Component)]
@@ -124,6 +130,9 @@ impl InputContext {
         // removing the ones we consume
         keyboard_events.retain(|e| {
             let keycode = e.key_code.unwrap();
+            if e.state == ButtonState::Released {
+                return false;
+            }
             if self.keyboard_input_map.contains_key(&keycode) == false {
                 return true;
             }
@@ -148,8 +157,8 @@ impl GameInputContextHandler {
 }
 
 impl MappedInputHandler for GameInputContextHandler {
-    fn handle_keyboard_input(&self, mapped_input: MappedKeyboardInput) -> Vec<GameEvents> {
-        let mut events: Vec<GameEvents> = vec![];
+    fn handle_keyboard_input(&self, mapped_input: MappedKeyboardInput) -> Vec<PlayerCommands> {
+        let mut events: Vec<PlayerCommands> = vec![];
 
         for (_, b) in mapped_input.into_iter() {
             events.push(b);
@@ -169,8 +178,8 @@ impl MenuInputContextHandler {
 }
 
 impl MappedInputHandler for MenuInputContextHandler {
-    fn handle_keyboard_input(&self, mapped_input: MappedKeyboardInput) -> Vec<GameEvents> {
-        let mut events: Vec<GameEvents> = vec![];
+    fn handle_keyboard_input(&self, mapped_input: MappedKeyboardInput) -> Vec<PlayerCommands> {
+        let mut events: Vec<PlayerCommands> = vec![];
 
         for (_, b) in mapped_input.into_iter() {
             events.push(b);

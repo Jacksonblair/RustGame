@@ -9,12 +9,13 @@ use bevy_renet::renet::{
     transport::{NetcodeServerTransport, ServerAuthentication, ServerConfig},
     ConnectionConfig, RenetServer,
 };
-
-const SERVER_ADDR: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 1234);
+use shared::{PROTOCOL_ID, SERVER_ADDR};
 
 pub fn server_setup(mut commands: Commands) {
     let server = RenetServer::new(ConnectionConfig::default());
     commands.insert_resource(server);
+
+    let server_addr = SERVER_ADDR.parse().unwrap();
 
     let socket = UdpSocket::bind(SERVER_ADDR).unwrap();
     let server_config = ServerConfig {
@@ -22,9 +23,9 @@ pub fn server_setup(mut commands: Commands) {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap(),
         max_clients: 64,
-        protocol_id: 0,
+        protocol_id: PROTOCOL_ID,
         authentication: ServerAuthentication::Unsecure,
-        public_addresses: vec![SERVER_ADDR],
+        public_addresses: vec![server_addr],
     };
     let transport = NetcodeServerTransport::new(server_config, socket).unwrap();
     commands.insert_resource(transport);

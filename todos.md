@@ -1,8 +1,7 @@
-entities
-components
-resources
-systems - input
+FLOW:
 
-contexts
-inputmap (per context)
-Inputmapper
+-   client runs
+-   client tries to connect to server
+-   game loop relies on active connection.
+
+-   separate client events

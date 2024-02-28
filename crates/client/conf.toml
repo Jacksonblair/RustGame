@@ -5,5 +5,5 @@ MoveLeft = "A"
 MoveRight = "D"
 
 [menu]
-MenuEscape = "Esc"
 ConnectToServer = "Enter"
+DisconnectFromServer = "Esc"
